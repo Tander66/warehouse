@@ -1,0 +1,50 @@
+#include<stdio.h>
+#include"prompt.h"
+#define 星巴克 1
+#define 瑞幸 2
+exec sql include sqlca; 
+
+char cid_prompt[]="please enter customer id:";
+int main()
+{
+    exec sql begin declare section; 
+    char cust_id[5], cust_name[14],s;
+    cin>>s;
+    float cust_discnt;
+    exec sql end declare section;
+
+    exec sql whenever sqlerror goto report_error;
+    exec sql whenever not found goto notfound; 
+
+    exec sql connect:"customer" identified by:"xxxxxx" using:"url"; 
+    
+    if (s=='1'){
+        while((prompt(cid_prompt,1,cust_id,4))>=0){
+            exec sql select cname,discnt into :cust_name,:cust_discnt
+            from customers where cname='星巴克'; 
+
+            exec sql commit work;
+            printf("customer's name is %s and discount 
+            is %.1f\n",cust_name, cust_discnt);
+            continue;
+        notfound:printf("can't find customer %s, continuing\n", cust_id);}}
+    else
+    {
+        while((prompt(cid_prompt,1,cust_id,4))>=0){
+            exec sql select cname,discnt into :cust_name,:cust_discnt
+            from customers where cname='瑞幸'; 
+
+            exec sql commit work;
+            printf("customer's name is %s and discount 
+            is %.1f\n",cust_name, cust_discnt);
+            continue;
+        notfound:printf("can't find customer %s, continuing\n", cust_id);}
+    }
+
+    exec sql commit release; 
+    return 0;
+    report_error: 
+        print_dberror();--打印报错
+        exec sql rollback release; -- 断开连接
+        return 1;
+}
