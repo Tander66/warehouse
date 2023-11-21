@@ -1,0 +1,133 @@
+import math
+from operator import itemgetter
+UserCF_dict =  {"A": {"a": 4.0, "b": 0.0, "c": 5.0, "d": 3.5, "e": 0.0, "f":2.0, "h":0.0},
+               "B": {"a": 0.0, "b": 3.0, "c": 4.5, "d": 1.0, "e": 3.5, "f":0.0, "h":3.0},
+               "C": {"a": 2.5, "b": 2.0, "c": 1.0, "d": 0.0, "e": 3.0, "f":4.0, "h":0.0},
+               "D": {"a": 1.0, "b": 0.0, "c": 0.0, "d": 6.5, "e": 1.5, "f":0.0, "h":4.0},
+               "E": {"a": 0.0, "b": 4.0, "c": 3.0, "d": 0.0, "e": 2.0, "f":1.0, "h":1.5},
+               "F": {"a": 4.0, "b": 1.5, "c": 0.0, "d": 0.5, "e": 1.5, "f":3.5, "h":0.0}}
+
+def UserSimilarity(dict_):
+    w = dict()
+    for u in dict_.keys():
+        w[u] = dict()   #太久不写生疏了 字典要一步一步添加
+        for v in dict_.keys():
+            if u == v :
+                continue
+#             print(dict_[u].keys)
+            u_dict = set([k for k in dict_[u].keys() if dict_[u][k] != 0]) # 对于u用户找出它发生过用户行为的物品集合 （即打过评分的物品集合）
+            v_dict = set([k for k in dict_[v].keys() if dict_[v][k] != 0])
+            w[u][v] = len(u_dict & v_dict)
+            w[u][v] /= math.sqrt(len(u_dict) * len(v_dict) * 1.0)
+    return w
+# len(UesrCF_dict['A'] & UesrCF_dict['B'])
+
+w1 = UserSimilarity(UserCF_dict)
+
+def UserSimilarity_better(dict_):
+    items_users = dict()
+    for u,items in dict_.items():
+#         print(u)
+        for i in items.keys():
+#             print(i)
+            items_users.setdefault(i,set())
+#             print(dict_[u][i])
+            if dict_[u][i] != 0:
+                items_users[i].add(u)
+#                 print(items_users[i])
+#     print(items_users)
+    count = dict()
+    num = dict()
+    for i,ur in items_users.items(): #i:{a,b,c,d,……}
+        for u in ur:
+            num.setdefault(u,0)
+            num[u] += 1
+#             items_users.setdefault(i,set())
+            count.setdefault(u,dict())  #key： A B C ……
+            for v in ur:
+                count[u].setdefault(v,0)
+                if u == v:
+                    continue
+                count[u][v] += 1 #gonggong
+    w = dict()
+    for u,realted_u in count.items():
+        w.setdefault(u,dict())
+        for v,cuv in realted_u.items():
+            if u == v:
+                continue
+            w[u].setdefault(v,0)
+            w[u][v] = cuv/math.sqrt(num[u] * num[v] * 1.0)
+    return w
+
+w2 = UserSimilarity_better(UserCF_dict)
+def UserSimilarity_best(dict_):
+    items_users = dict()
+    for u,items in dict_.items():
+#         print(u)
+        for i in items.keys():
+#             print(i)
+            items_users.setdefault(i,set())
+#             print(dict_[u][i])
+            if dict_[u][i] != 0:
+                items_users[i].add(u)
+    count = dict()
+                          
+    num = dict()
+    for i,ur in items_users.items(): #i:{a,b,c,d,……} ur:用户集合 热门
+        for u in ur:
+            num.setdefault(u,0)
+            num[u] += 1
+#             items_users.setdefault(i,set())
+            count.setdefault(u,dict())  #key： A B C ……
+            for v in ur:
+                count[u].setdefault(v,0)
+                if u == v:
+                    continue
+                count[u][v] += 1/math.log(1 + len(ur)) #gonggong log惩罚
+    w = dict()
+    for u,realted_u in count.items():
+        w.setdefault(u,dict())
+        for v,cuv in realted_u.items():
+            if u == v:
+                continue
+            w[u].setdefault(v,0)
+            w[u][v] = cuv/math.sqrt(num[u] * num[v] * 1.0)
+    return w
+
+w3 = UserSimilarity_best(UserCF_dict)
+def recommend(u,dict_,w_,k):
+#先得到用户对于喜欢物品的字典
+#再找到目标用户相似度最高的k个用户
+#获取k个用户的喜欢物品 删掉其中目标用户已发生过行为的物品
+#再计算物品的推荐分数 =  目标用户与前k用户的相似度*前k用户喜欢物品的评分（求和）
+    cout = dict()
+    for i in dict_.keys():
+        cout[i] = set()
+        for j in dict_[i].keys():
+            if dict_[i][j] != 0:
+                cout[i].add(j)
+#     print(cout)
+#     print(w_[u])
+    x = sorted(w_[u].items(),key = itemgetter(1),reverse = True)[:k]
+#     print(x)
+    cout_item = dict()
+    for i in range(k):
+#         cout_item[x[i]] = set()
+        cout_item[x[i][0]] = [ki for ki in cout[x[i][0]] if ki not in cout[u]]
+#     print(cout_item)
+    rank = dict()
+    for j in cout_item.keys():
+        for i in range(len(cout_item[j])):
+#             print(cout_item[j][i])
+            rank.setdefault(cout_item[j][i],0)  
+            rank[cout_item[j][i]] += w_[u][j] * dict_[j][cout_item[j][i]]
+#             rank[ans] = 0
+    print(rank)
+
+
+#调用
+ans = ['两两用户之间计算','优化后的倒查表方式计算用户相似度','采用惩罚热门物品和倒查表方式计算用户相似度方法']
+li = [w1,w2,w3]
+for i in range(3):
+    print(ans[i])
+    recommend('A',UserCF_dict,li[i],2)
