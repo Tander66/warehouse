@@ -1,0 +1,132 @@
+import os
+import math
+import  numpy as np
+import random
+NumOfMovies = 9000
+NumOfUsers = 700
+
+def get_data(file):
+    """
+    读取数据
+    """
+    if not os.path.exists(file):
+        return {}
+    fp = open(file)
+    data = {}
+    linenum = 0
+    for line in fp:
+        if linenum == 0:
+            linenum += 1
+            continue
+        line = line.split(',')
+        userid,itemid = int(line[0]),int(line[1])
+        if userid not in data:
+            data[userid] = []
+        data[userid].append(itemid)
+    fp.close()
+    return data
+
+def split_data(data,M,k,seed):
+    #将数据划分成为测试集和训练集
+    test = {}
+    train = {}
+    random.seed(seed)
+    for user,items in data.items():
+        for i in items:
+            if random.randint(0,M) == k:
+                if user not in test:
+                    test[user] =[]
+                test[user].append(i)
+            else:
+                if user not in train:
+                    train[user] = []
+                train[user].append(i)
+    return train,test
+
+def UserSimilarity(train):
+    #得到用户相似集合W
+    #建立电影用户倒排表
+    item_user = {}
+    for u,items in train.items():
+        for i in items:
+            if i not in item_user:
+                item_user[i] = []
+            item_user[i].append(u)
+    #计算C[u][v]即u和v共同观看的电影数
+    C = {}
+    N = np.zeros([NumOfUsers],dtype = np.int32)
+    user_related = {}
+    for i,users in item_user.items():
+        for u in users:
+            N[u] += 1
+            if u not in C:
+                C[u] = {}
+            for v in users:
+                if u == v:
+                    continue
+                if v not in C[u]:
+                    C[u][v] = 0
+                C[u][v] += (1/math.log(1+len(users)))
+                if u not in user_related:
+                    user_related[u] = []
+                user_related[u].append(v)
+    #求用户相似矩阵W
+    W = np.zeros([NumOfUsers,NumOfUsers],dtype = np.float)
+    for u,users in C.items():
+        for v in users:
+            W[u][v] += C[u][v] / math.sqrt(N[u] * N[v])
+    return W ,user_related
+
+def recommend(User,train,K,N,W,user_related):
+    #通过相似矩阵W给用户产生推荐record
+    k_user = {}
+    rank ={}
+    
+    for v in user_related[User]:
+        k_user[v] = W[User][v]
+    k_user = sorted(k_user.items(),key = lambda x:x[1],reverse = True)[:K]
+    for v,w in k_user:
+        for item in train[v] :
+            if item in train[User]:
+                continue
+            if item not in rank:
+                rank[item] = 0
+            rank[item] += w
+    rank = sorted(rank.items(),key = lambda x:x[1],reverse = True)[:N]
+    return rank
+
+def Recall(train,test,N,k,W,user_related):
+    #计算召回率
+    hit = 0
+    totla = 0
+    for user in train:
+        tu =test[user]
+        rank = recommend(user,train,k,N,W,user_related)
+        for item in rank :
+            if item[0] in tu :
+                hit += 1
+        totla += len(tu)
+    return hit/(totla*1.0)
+    
+def Precision(train,test,N,k,W,user_related):
+    #计算召回率
+    hit = 0
+    totla = 0
+    for user in train:
+        tu =test[user]
+        rank = recommend(user,train,k,N,W,user_related)
+        for item in rank :
+            if item[0] in tu :
+                hit += 1
+        totla += len(rank)
+    return hit/(totla*1.0)
+
+
+if __name__ == "__main__":
+    data = get_data(r"F:\个性化推荐算法\UserCF\data\ratings.csv")
+    train,test = split_data(data,2,1,1)
+    del data
+    W,user_relatde = UserSimilarity(train)
+    recall = Recall(train,test,10,10,W,user_relatde)
+    precision = Precision(train,test,10,10,W,user_relatde)
+    print(recall,precision) 
